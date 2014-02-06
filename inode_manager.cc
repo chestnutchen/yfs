@@ -173,7 +173,6 @@ inode_manager::free_inode(uint32_t inum)
   inode* ino = get_inode(inum);
   uint32_t buf_indir[BLOCK_SIZE];
   if (ino->type != 0) {
-    ino->type = 0;
 	for (int i = 0; i < ceil( float(ino->size) / (float)BLOCK_SIZE ); i++ ) {
 	  if (i < NDIRECT) {
 		if (ino->blocks[i] > 0) {
@@ -187,7 +186,7 @@ inode_manager::free_inode(uint32_t inum)
 		bm->free_block(buf_indir[i - NDIRECT]);
 	  }
 	}
-	bzero(ino->blocks, NDIRECT + 1);
+	bzero(ino, sizeof(struct inode));
 	put_inode(inum, ino);
   }
 
@@ -214,6 +213,10 @@ inode_manager::get_inode(uint32_t inum)
   // printf("%s:%d\n", __FILE__, __LINE__);
 
   ino_disk = (struct inode*)buf + inum%IPB;
+  if (ino_disk->type == 0) {
+    printf("\tim: inode not exist\n");
+    return NULL;
+  }
 
   ino = (struct inode*)malloc(sizeof(struct inode));
   *ino = *ino_disk;
@@ -345,11 +348,13 @@ inode_manager::getattr(uint32_t inum, extent_protocol::attr &a)
    * you can refer to "struct attr" in extent_protocol.h
    */
   inode* i = get_inode(inum);
-  a.type = i->type;
-  a.size = i->size;
-  a.atime = i->atime;
-  a.mtime = i->mtime;
-  a.ctime = i->ctime;
+  if (i != NULL) {
+	  a.type = i->type;
+	  a.size = i->size;
+	  a.atime = i->atime;
+	  a.mtime = i->mtime;
+	  a.ctime = i->ctime;
+  }
   
   return;
 }
